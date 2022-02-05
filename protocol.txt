@@ -1,0 +1,30 @@
+size-type
+00 - 1 byte
+01 - 2 bytes
+10 - 4 bytes
+
+request:
+    <marker:2b|param-size-type:2b|call-count:4b>
+    <reserved:8b>
+    <context-id:16b>
+    <object-id:8b><method-id:8b> x {call-count}
+    <params-size:var> x {call-count}
+
+    <params/64b>
+
+request-cancel:
+    <marker:2b|reserved:2b|context-count:4b>
+    <reserved:8b>
+    <context-id:16b> x {context-count}
+
+response:
+    <marker:2b|result-size-type:2b|context-count:4b>
+    <reserved:6b|use-error-ids:1b|use-result-sizes:1b>
+    <context-id:16b> x {context-count}
+    <call-result-count:8b> x {context-count}
+    [<error-id:8b>] x sum({call-result-count})
+    [<result-size:var/*>] x sum({call-result-count})
+
+    <result:var/64>
+    <result:var/64>
+    <result:var/64>
