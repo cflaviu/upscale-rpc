@@ -10,6 +10,7 @@ void test_request()
 
     r.count = 3;
     r.context_id = 0xB1C0u;
+    r.use_data_sizes = true;
 
     r.object_methods[0u] = {0u, 1u};
     r.object_methods[1u] = {0u, 2u};
@@ -22,12 +23,11 @@ void test_request()
 
     r.data_sizes = data_sizes;
 
-    auto s = r.size();
+    auto s = r.storage_size();
     std::cout << "request-size" << s << '\n';
 
     std::vector<std::uint8_t> buffer(s);
-    auto end = r.serialize_to(buffer.data());
-    *end = 0;
+    r.serialize_to(buffer.data());
 
     flex_rpc::request rr;
     rr.deserialize_from(buffer.data());
@@ -52,6 +52,31 @@ void test_request()
     std::cout << "request-test: " << ok << '\n';
 }
 
+void test_request_cancel()
+{
+    flex_rpc::request_cancel r;
+    auto rs = sizeof(r);
+    rs = 0;
+
+    r.count = 3u;
+
+    r.context_ids[0u] = 0xAAAAu;
+    r.context_ids[1u] = 0xBBBBu;
+    r.context_ids[2u] = 0xCCCCu;
+
+    auto s = r.storage_size();
+
+    std::vector<std::uint8_t> buffer(s);
+    r.serialize_to(buffer.data());
+    std::cout << "response-size: " << std::dec << s << '\n';
+
+    flex_rpc::request_cancel rr;
+    rr.deserialize_from(buffer.data());
+
+    bool ok = (r == rr);
+    std::cout << "request-cancel-test: " << ok << '\n';
+}
+
 void test_response()
 {
     flex_rpc::response r;
@@ -59,7 +84,7 @@ void test_response()
     rs = 0;
 
     r.use_data_sizes = true;
-    r.use_error_ids = false;
+    r.use_tiny_results = false;
 
     r.count = 3u;
 
@@ -73,17 +98,17 @@ void test_response()
 
     r.set_total_result_count();
 
-    r.error_ids[0u] = 0u;
-    r.error_ids[1u] = 0u;
+    r.tiny_results[0u] = 0u;
+    r.tiny_results[1u] = 0u;
 
-    r.error_ids[2u] = 1u;
-    r.error_ids[3u] = 2u;
-    r.error_ids[4u] = 3u;
+    r.tiny_results[2u] = 1u;
+    r.tiny_results[3u] = 2u;
+    r.tiny_results[4u] = 3u;
 
-    r.error_ids[5u] = 4u;
-    r.error_ids[6u] = 5u;
-    r.error_ids[7u] = 6u;
-    r.error_ids[8u] = 7u;
+    r.tiny_results[5u] = 4u;
+    r.tiny_results[6u] = 5u;
+    r.tiny_results[7u] = 6u;
+    r.tiny_results[8u] = 7u;
 
     flex_rpc::array::data_sizes_32 data_sizes(&r.total_result_count);
     data_sizes[0u] = 0xAAAAAAA1u;
@@ -100,7 +125,7 @@ void test_response()
 
     r.data_sizes = data_sizes;
 
-    auto s = r.size();
+    auto s = r.storage_size();
 
     std::vector<std::uint8_t> buffer(s);
     r.serialize_to(buffer.data());
@@ -112,7 +137,7 @@ void test_response()
 #if 0
         bool ok1 = r.context_ids == rr.context_ids;
         bool ok2 = r.result_counts == rr.result_counts;
-        bool ok3 = r.use_error_ids ? r.error_ids == rr.error_ids : true;
+        bool ok3 = r.use_tiny_results ? r.tiny_results == rr.tiny_results : true;
         bool ok4 = r.use_data_sizes ? r.data_sizes == rr.data_sizes : true;
 #endif
 
@@ -128,6 +153,14 @@ void test_response()
                 std::cout << '\n';
             },
             rr.data_sizes);
+
+        auto& offsets = r.data_offsets();
+        for (auto offset: offsets)
+        {
+            std::cout << offset << ' ';
+        }
+
+        std::cout << '\n';
     }
 
     bool ok = (r == rr);
@@ -137,5 +170,7 @@ void test_response()
 int main()
 {
     test_request();
+    test_request_cancel();
+    test_response();
     return 0;
 }

@@ -9,11 +9,10 @@ namespace flex_rpc
 
     std::uint8_t storage_bytes_for(const std::uint32_t value) noexcept { return (value < 0x10000u) ? (value < 0x100u) ? 1u : 2u : 4u; }
 
-    std::size_t request::size() const noexcept
+    template <typename Array>
+    void align_to_array_value(auto& size, const Array& /*sizes*/) noexcept
     {
-        std::size_t result = context_id_offset + sizeof(context_id_t) + object_methods.size();
-        std::visit([&](auto& sizes) { result += sizes.size(); }, data_sizes);
-        return result;
+        align_offset(size, sizeof(typename Array::value_type));
     }
 
     namespace primary_byte
@@ -33,47 +32,51 @@ namespace flex_rpc
         }
     }
 
-    const std::uint8_t* item::set_data_offsets(const std::uint8_t* s) noexcept
+    const std::uint8_t* item::set_data_offsets(const std::uint8_t* const s, const std::uint8_t* count) noexcept
     {
-        auto dest_data_offset_iter = _data_offsets.begin();
+        _data_offsets.set_size_ptr(count);
+        auto p = s;
         std::visit(
             [&](const auto& sizes) {
+                auto dest = _data_offsets.begin();
                 for (auto size: sizes)
                 {
-                    align_pointer(s, sizeof(std::uint64_t));
-                    *dest_data_offset_iter = s;
-                    s += size;
-                    ++dest_data_offset_iter;
+                    auto offset = static_cast<std::uint32_t>(std::distance(s, p));
+                    align_offset(offset, sizeof(std::size_t));
+                    *dest = offset;
+                    p += size;
+                    ++dest;
                 }
             },
             data_sizes);
 
-        align_pointer(s, sizeof(std::uint64_t));
-        *dest_data_offset_iter = s;
-        return s;
+        return p;
     }
 
     const std::uint8_t* item::deserialize_data_sizes_from(const std::uint8_t* s, const std::uint8_t* count,
                                                           const std::uint8_t index) noexcept
     {
         const std::uint8_t* result;
+        constexpr std::uint8_t index_1_bytes = 0u;
+        constexpr std::uint8_t index_2_bytes = 1u;
+        constexpr std::uint8_t index_4_bytes = 2u;
         switch (index)
         {
-            case 0u:
+            case index_1_bytes:
             {
                 array::data_sizes_8 items(count);
                 result = items.deserialize_from(s);
                 data_sizes = std::move(items);
                 break;
             }
-            case 1u:
+            case index_2_bytes:
             {
                 array::data_sizes_16 items(count);
                 result = items.deserialize_from(s);
                 data_sizes = std::move(items);
                 break;
             }
-            case 2u:
+            case index_4_bytes:
             {
                 array::data_sizes_32 items(count);
                 result = items.deserialize_from(s);
@@ -90,13 +93,32 @@ namespace flex_rpc
         return result;
     }
 
+    std::size_t request::storage_size() const noexcept
+    {
+        std::size_t result = context_id_offset + sizeof(context_id_t) + object_methods.storage_size();
+        if (use_data_sizes)
+        {
+            std::visit(
+                [&](auto& sizes) {
+                    align_to_array_value(result, sizes);
+                    result += sizes.storage_size();
+                },
+                data_sizes);
+        }
+
+        return result;
+    }
+
     std::uint8_t* request::serialize_to(std::uint8_t* const s) const noexcept
     {
         s[0] = primary_byte::serialize(static_cast<std::uint8_t>(data_sizes.index()), count);
-        s[1] = 0u; // reserved
-        std::memcpy(s + context_id_offset, &context_id, sizeof(context_id_t));
+        s[1] = std::uint8_t(use_data_sizes);
         auto p = object_methods.serialize_to(s + context_id_offset + sizeof(context_id_t));
-        std::visit([&](auto& sizes) { p = sizes.serialize_to(p); }, data_sizes);
+        if (use_data_sizes)
+        {
+            std::visit([&](auto& sizes) { p = sizes.serialize_to(p); }, data_sizes);
+        }
+
         return p;
     }
 
@@ -104,20 +126,31 @@ namespace flex_rpc
     {
         std::uint8_t index;
         primary_byte::deserialize(*s, index, count);
+        use_data_sizes = (s[1] & 1u) != 0u;
         std::memcpy(&context_id, s + context_id_offset, sizeof(context_id_t));
-        auto p1 = object_methods.deserialize_from(s + context_id_offset + sizeof(context_id_t));
-        auto p2 = deserialize_data_sizes_from(p1, &count, index);
-        // set_data_offsets(p2);
-        return p2;
+        auto p = object_methods.deserialize_from(s + context_id_offset + sizeof(context_id_t));
+        if (use_data_sizes)
+        {
+            p = deserialize_data_sizes_from(p, &count, index);
+            set_data_offsets(p, &count);
+        }
+
+        return p;
     }
 
     bool request::operator==(const request& item) const noexcept
     {
-        return (context_id == item.context_id) && (count == item.count) && (object_methods == item.object_methods) &&
-               (data_sizes == item.data_sizes);
+        bool result = (context_id == item.context_id) && (count == item.count) && (use_data_sizes == item.use_data_sizes) &&
+                      (object_methods == item.object_methods) && (data_sizes == item.data_sizes);
+        if (use_data_sizes)
+        {
+            result &= (data_sizes == item.data_sizes);
+        }
+
+        return result;
     }
 
-    size_t request_cancel::size() const noexcept { return context_id_offset + context_ids.size(); }
+    size_t request_cancel::storage_size() const noexcept { return context_id_offset + context_ids.storage_size(); }
 
     std::uint8_t* request_cancel::serialize_to(std::uint8_t* const s) const noexcept
     {
@@ -139,17 +172,22 @@ namespace flex_rpc
 
     void response::set_total_result_count() noexcept { total_result_count = item::count != 0u ? sum(result_counts) : 0u; }
 
-    std::size_t response::size() const noexcept
+    std::size_t response::storage_size() const noexcept
     {
-        std::size_t result = context_id_offset + context_ids.size() + result_counts.size();
-        if (use_error_ids)
+        std::size_t result = context_id_offset + context_ids.storage_size() + result_counts.storage_size();
+        if (use_tiny_results)
         {
-            result += error_ids.size();
+            result += tiny_results.storage_size();
         }
 
         if (use_data_sizes)
         {
-            std::visit([&](auto& sizes) { result += sizes.size(); }, data_sizes);
+            std::visit(
+                [&](auto& sizes) {
+                    align_to_array_value(result, sizes);
+                    result += sizes.storage_size();
+                },
+                data_sizes);
         }
 
         return result;
@@ -158,12 +196,12 @@ namespace flex_rpc
     std::uint8_t* response::serialize_to(std::uint8_t* const s) const noexcept
     {
         s[0] = marker | primary_byte::serialize(static_cast<std::uint8_t>(data_sizes.index()), count);
-        s[1] = (std::uint8_t(use_data_sizes) << 1u) | std::uint8_t(use_error_ids); // reserved
+        s[1] = (std::uint8_t(use_tiny_results) << 1u) | std::uint8_t(use_data_sizes);
         auto p = context_ids.serialize_to(s + context_id_offset);
         p = result_counts.serialize_to(p);
-        if (use_error_ids)
+        if (use_tiny_results)
         {
-            p = error_ids.serialize_to(p);
+            p = tiny_results.serialize_to(p);
         }
 
         if (use_data_sizes)
@@ -178,20 +216,20 @@ namespace flex_rpc
     {
         std::uint8_t index;
         primary_byte::deserialize(*s, index, count);
-        use_data_sizes = ((s[1] >> 1u) & 1u) != 0u;
-        use_error_ids = (s[1] & 1u) != 0u;
+        use_tiny_results = ((s[1] >> 1u) & 1u) != 0u;
+        use_data_sizes = (s[1] & 1u) != 0u;
         auto p = context_ids.deserialize_from(s + context_id_offset);
         p = result_counts.deserialize_from(p);
         total_result_count = sum(result_counts);
-        if (use_error_ids)
+        if (use_tiny_results)
         {
-            p = error_ids.deserialize_from(p);
+            p = tiny_results.deserialize_from(p);
         }
 
         if (use_data_sizes)
         {
             p = deserialize_data_sizes_from(p, &total_result_count, index);
-            // set_data_offsets(p);
+            set_data_offsets(p, &total_result_count);
         }
 
         return p;
@@ -199,21 +237,21 @@ namespace flex_rpc
 
     bool response::operator==(const response& item) const noexcept
     {
-        bool same = (count == item.count) && (use_error_ids == item.use_error_ids) && (use_data_sizes == item.use_data_sizes) &&
-                    (context_ids == item.context_ids) && (result_counts == item.result_counts);
-        if (same)
+        bool result = (count == item.count) && (use_tiny_results == item.use_tiny_results) && (use_data_sizes == item.use_data_sizes) &&
+                      (context_ids == item.context_ids) && (result_counts == item.result_counts);
+        if (result)
         {
-            if (use_error_ids)
+            if (use_tiny_results)
             {
-                same &= (error_ids == item.error_ids);
+                result &= (tiny_results == item.tiny_results);
             }
 
             if (use_data_sizes)
             {
-                same &= (data_sizes == item.data_sizes);
+                result &= (data_sizes == item.data_sizes);
             }
         }
 
-        return same;
+        return result;
     }
 }
