@@ -196,13 +196,6 @@ namespace flex_rpc
             internal_array_t _data {};
         };
 
-        auto begin(auto& item) noexcept { return item.begin(); }
-        auto end(auto& item) noexcept { return item.end(); }
-        auto begin(const auto& item) noexcept { return item.cbegin(); }
-        auto end(const auto& item) noexcept { return item.cend(); }
-        auto cbegin(const auto& item) noexcept { return item.cbegin(); }
-        auto cend(const auto& item) noexcept { return item.cend(); }
-
         using offset = simple<std::uint32_t, 16u>;
         using data_sizes_8 = simple<std::uint8_t, 16u>;
         using data_sizes_16 = simple<std::uint16_t, 16u>;
@@ -237,6 +230,8 @@ namespace flex_rpc
 
     struct request: item
     {
+        static constexpr std::uint8_t marker = 0u;
+
         request(): object_methods(&count) {}
 
         size_t storage_size() const noexcept;
