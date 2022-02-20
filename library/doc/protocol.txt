@@ -1,0 +1,32 @@
+size-type
+00 - 1 byte
+01 - 2 bytes
+10 - 4 bytes
+11 - 8 bytes
+
+request:
+    <marker:2b|size-type:2b|call-count:4b>
+    <reserved:6b|inplace-params:1b|use-params:1b>
+    <context-id:16b>
+    <object-id:8b><method-id:8b> x {call-count}
+    [<inplace-params/params-size:var>] x {call-count}
+    [<params/64b>]
+min: 1+1+2+2=6 bytes
+max: 1+1+16x2+16*8=2+32+128=162 bytes
+
+request-cancel:
+    <marker:2b|reserved:2b|context-count:4b>
+    <reserved:8b>
+    <context-id:16b> x {context-count}
+min: 1+1+2+2=6 bytes
+max: 1+1+16x2=34 bytes
+
+response:
+    <marker:2b|size-type:2b|context-count:4b>
+    <reserved:6b|inplace-results:1b|use-results:1b>
+    <context-id:16b> x {context-count}
+    <call-result-count:8b> x {context-count}
+    [<inplace-result/result-size:var>] x sum({call-result-count})
+    [<result:var/64>]
+min: 2+2+1+1=6 bytes
+max: 2+2x16+16+16+16x8=2+4x16+128=2+64+128=194 bytes

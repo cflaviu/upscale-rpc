@@ -1,37 +1,13 @@
 #pragma once
 #ifndef PCH
-    #include <algorithm>
-    #include <array>
+//   #include <algorithm>
     #include <cstring>
+    #include <upscale_rpc/utils.hpp>
     #include <variant>
 #endif
 
-namespace flex_rpc
+namespace upscale_rpc
 {
-    using object_id_t = std::uint8_t;
-    using method_id_t = std::uint8_t;
-    using context_id_t = std::uint16_t;
-
-    std::uint8_t storage_bytes_for(std::uint32_t value) noexcept;
-
-    void align_pointer(auto*& p, const std::uint8_t alignment) noexcept
-    {
-        auto diff = reinterpret_cast<std::size_t>(p) % alignment;
-        if (diff != 0u)
-        {
-            p += diff;
-        }
-    }
-
-    void align_offset(auto& offset, const std::uint8_t alignment) noexcept
-    {
-        const auto diff = offset % alignment;
-        if (diff != 0u)
-        {
-            offset += diff;
-        }
-    }
-
     namespace array
     {
         template <const std::size_t N, typename Size = std::uint8_t>
@@ -162,7 +138,7 @@ namespace flex_rpc
             {
                 if constexpr (sizeof(T) != 1u)
                 {
-                    align_pointer(s, sizeof(T));
+                    util::align_pointer(s, sizeof(T));
                 }
 
                 const auto bytes = storage_size();
@@ -174,7 +150,7 @@ namespace flex_rpc
             {
                 if constexpr (sizeof(T) != 1u)
                 {
-                    align_pointer(s, sizeof(T));
+                    util::align_pointer(s, sizeof(T));
                 }
 
                 const auto bytes = storage_size();
@@ -196,102 +172,12 @@ namespace flex_rpc
             internal_array_t _data {};
         };
 
-        using offset = simple<std::uint32_t, 16u>;
-        using data_sizes_8 = simple<std::uint8_t, 16u>;
-        using data_sizes_16 = simple<std::uint16_t, 16u>;
-        using data_sizes_32 = simple<std::uint32_t, 16u>;
+        using offset = simple<offset_t, 16u>;
+        using data_8 = simple<std::uint8_t, 16u>;
+        using data_16 = simple<std::uint16_t, 16u>;
+        using data_32 = simple<std::uint32_t, 16u>;
+        using data_64 = simple<std::uint64_t, 16u>;
 
-        using data_size_variant = std::variant<data_sizes_8, data_sizes_16, data_sizes_32>;
+        using data_variant = std::variant<data_8, data_16, data_32, data_64>;
     } // namespace array
-
-    struct object_method
-    {
-        object_id_t object_id {};
-        method_id_t method_id {};
-
-        using array = flex_rpc::array::simple<object_method, 16u>;
-    };
-
-    struct item
-    {
-        const array::offset& data_offsets() const noexcept { return _data_offsets; }
-        const std::uint8_t* set_data_offsets(const std::uint8_t* s, const std::uint8_t* count) noexcept;
-
-        std::uint8_t count {};
-        array::data_size_variant data_sizes {};
-
-    protected:
-        const std::uint8_t* deserialize_data_sizes_from(const std::uint8_t* s, const std::uint8_t* count,
-                                                        const std::uint8_t index) noexcept;
-
-    private:
-        array::offset _data_offsets {};
-    };
-
-    struct request: item
-    {
-        static constexpr std::uint8_t marker = 0u;
-
-        request(): object_methods(&count) {}
-
-        size_t storage_size() const noexcept;
-
-        std::uint8_t* serialize_to(std::uint8_t* const s) const noexcept;
-        const std::uint8_t* deserialize_from(const std::uint8_t* s) noexcept;
-
-        bool operator==(const request& item) const noexcept;
-        bool operator!=(const request& item) const noexcept = default;
-
-        context_id_t context_id {};
-        bool use_data_sizes {};
-        object_method::array object_methods;
-    };
-
-    using context_id_array = array::simple<context_id_t, 16u>;
-
-    struct request_cancel: item
-    {
-        static constexpr std::uint8_t marker = 0x80u;
-
-        request_cancel(): context_ids(&count) {}
-
-        size_t storage_size() const noexcept;
-
-        std::uint8_t* serialize_to(std::uint8_t* const s) const noexcept;
-        const std::uint8_t* deserialize_from(const std::uint8_t* s) noexcept;
-
-        bool operator==(const request_cancel& item) const noexcept;
-        bool operator!=(const request_cancel& item) const noexcept = default;
-
-        std::uint8_t count {};
-        context_id_array context_ids;
-    };
-
-    struct response: item
-    {
-        using result_count_array = array::nibble<16u>;
-        using tiny_result_array = array::simple<std::uint8_t, 16u>;
-
-        static constexpr std::uint8_t marker = 0x40u;
-
-        response(): context_ids(&count), result_counts(&count), tiny_results(&total_result_count) {}
-
-        void set_total_result_count() noexcept;
-
-        size_t storage_size() const noexcept;
-
-        std::uint8_t* serialize_to(std::uint8_t* const s) const noexcept;
-        const std::uint8_t* deserialize_from(const std::uint8_t* const s) noexcept;
-
-        bool operator==(const response& item) const noexcept;
-        bool operator!=(const response& item) const noexcept = default;
-
-        context_id_array context_ids;
-        result_count_array result_counts;
-        tiny_result_array tiny_results;
-        std::uint8_t total_result_count {};
-        bool use_tiny_results {};
-        bool use_data_sizes {};
-    };
-
 } // namespace flex_rpc
