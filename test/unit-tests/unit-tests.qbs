@@ -14,6 +14,7 @@ CppApplication {
     //cpp.cxxFlags: "-fsanitize=address"
     //cpp.staticLibraries: "asan"
     files: [
+        "src/header_test.cpp",
         "src/request_cancel_tests.cpp",
         "src/request_tests.cpp",
         "src/response_tests.cpp",
