@@ -15,9 +15,9 @@ CppApplication {
     //cpp.staticLibraries: "asan"
     files: [
         "src/header_test.cpp",
-        "src/request_cancel_tests.cpp",
-        "src/request_tests.cpp",
-        "src/response_tests.cpp",
+        "src/request/cancel/tests.cpp",
+        "src/request/linked_params_tests.cpp",
+        "src/response/tests.cpp",
     ]
 
     Group {     // Properties for the produced executable

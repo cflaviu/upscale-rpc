@@ -46,13 +46,21 @@ namespace upscale_rpc
         auto total_param_size = std::accumulate(params.sizes().begin(), params.sizes().end(), 0u);
         REQUIRE(total_param_size <= param_buffer_size);
 
-        auto p0 = params[0u].data();
-        auto p00 = param0.data();
+        auto verifier = [&params](const std::uint8_t id, const auto& array_item)
+        {
+            using array_type = typename std::remove_cvref<decltype(array_item)>::type;
+            using value_type = typename array_type::value_type;
 
-        //        REQUIRE(std::equal(params[0u].begin(), params[0u].end(), param0.begin()));
-        //        REQUIRE(std::equal(params[1u].begin(), params[1u].end(), param1.begin()));
-        // REQUIRE(std::equal(params[2u].begin(), params[2u].end(), param2.begin()));
-        REQUIRE(std::equal(params[3u].begin(), params[3u].end(), param3.begin()));
+            auto result = params[id];
+            auto expected = std::span<const std::uint8_t> {reinterpret_cast<const std::uint8_t*>(array_item.data()),
+                                                           array_item.size() * sizeof(value_type)};
+            REQUIRE(std::equal(result.begin(), result.end(), expected.begin()));
+        };
+
+        verifier(0u, param0);
+        verifier(1u, param1);
+        verifier(2u, param2);
+        verifier(3u, param3);
 
         auto raw_data = req.raw_data();
 

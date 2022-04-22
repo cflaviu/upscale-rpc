@@ -30,7 +30,7 @@ namespace upscale_rpc::request
         object_method_id_t object_method_id(const index_t index) const noexcept
         {
 #ifdef NDEBUG
-            return _object_method_ids[index]
+            return _object_method_ids[index];
 #else
             return _object_method_ids.at(index);
 #endif

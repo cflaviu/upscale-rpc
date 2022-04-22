@@ -26,6 +26,7 @@ namespace upscale_rpc
         return (offset + (alignment - 1u)) & -alignment;
     }
 
+    // @@ not used yet
     enum class size_type_t : std::uint8_t
     {
         _1_byte,
@@ -50,11 +51,13 @@ namespace upscale_rpc
 
     struct header_t
     {
-        std::uint16_t marker : 2, reserved : 5, size_type : 3, use_inline_params : 1, use_params : 1, count : 4;
+        std::uint16_t marker : 2, reserved : 3, size_type : 3, use_inline_params : 1, use_params : 1, count : 6;
 
+        constexpr header_t() = default;
         constexpr header_t(const marker_t marker, const std::uint8_t size_type, const bool use_inline_params, const bool use_params,
                            const std::uint8_t count) noexcept:
             marker(+marker),
+            reserved(0u),
             size_type(size_type),
             use_inline_params(use_inline_params),
             use_params(use_params),

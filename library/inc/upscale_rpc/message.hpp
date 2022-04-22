@@ -29,7 +29,8 @@ namespace upscale_rpc::message
         context_id_array _context_ids;
     };
 
-    template <const std::uint8_t _Count, const std::uint8_t _Size_type, const size_t _Buffer_size>
+    template <const std::uint8_t _Count, const std::uint8_t _Size_type, const size_t _Buffer_size,
+              const std::uint8_t _Alignment = sizeof(size_t)>
     class linked_parameter_data
     {
     public:
@@ -46,7 +47,7 @@ namespace upscale_rpc::message
 
         bool add(data_t data) noexcept
         {
-            const auto aligned_index = align_offset_forward(_index, 8u);
+            const auto aligned_index = align_offset_forward(_index, _Alignment);
             const auto new_index = aligned_index + data.size();
             const bool ok = (_count < _sizes.size()) && (new_index < _buffer.size());
             if (ok)
@@ -77,7 +78,7 @@ namespace upscale_rpc::message
             _count = 0u;
             for (const auto size: _sizes)
             {
-                const auto aligned_index = align_offset_forward(_index, 8u);
+                const auto aligned_index = align_offset_forward(_index, _Alignment);
                 _offsets[_count] = aligned_index;
                 ++_count;
                 _index = aligned_index + size;
@@ -95,11 +96,11 @@ namespace upscale_rpc::message
     };
 
     template <template <const std::uint8_t, const std::uint8_t> class base, const std::uint8_t _Count, const std::uint8_t _Size_type,
-              const size_t _Param_buffer_size>
+              const size_t _Param_buffer_size, const std::uint8_t _Alignment = sizeof(size_t)>
     class linked_params: public base<_Count, _Size_type>
     {
     public:
-        using param_data_t = linked_parameter_data<_Count, _Size_type, _Param_buffer_size>;
+        using param_data_t = linked_parameter_data<_Count, _Size_type, _Param_buffer_size, _Alignment>;
 
         constexpr linked_params(const context_id_t context_id) noexcept: base<_Count, _Size_type>(context_id, true) {}
 

@@ -5,7 +5,18 @@
 
 namespace upscale_rpc
 {
-    TEST_CASE("Check header")
+    TEST_CASE("Check header default ctor")
+    {
+        header_t h {};
+
+        REQUIRE(h.marker == 0u);
+        REQUIRE(h.size_type == 0u);
+        REQUIRE(h.use_inline_params == false);
+        REQUIRE(h.use_params == false);
+        REQUIRE(h.count == 0u);
+    }
+
+    TEST_CASE("Check header ctor")
     {
         constexpr marker_t marker = marker_t::request;
         constexpr std::uint8_t size_type = 7u;
