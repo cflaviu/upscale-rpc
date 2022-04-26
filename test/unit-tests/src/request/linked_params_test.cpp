@@ -5,22 +5,23 @@
 #include <upscale_rpc/request.hpp>
 #include <vector>
 
-namespace upscale_rpc
+namespace upscale_rpc::request
 {
-    TEST_CASE("Check request")
+    TEST_CASE("Check linked-parameters request")
     {
-        constexpr context_id_t context_id {10u};
         constexpr std::uint8_t param_buffer_size = 128u;
         constexpr std::uint8_t call_count = 4u;
         constexpr std::uint8_t size_type = 2u;
-        using req_t = request::linked_params<call_count, size_type, param_buffer_size>;
+        using request_t = linked_params<call_count, size_type, param_buffer_size>;
 
-        req_t req(context_id);
+        request_t request {};
 
-        req.object_method_id(0u) = object_method_id_t {0u, 1u};
-        req.object_method_id(1u) = object_method_id_t {0u, 2u};
-        req.object_method_id(2u) = object_method_id_t {0u, 3u};
-        req.object_method_id(3u) = object_method_id_t {0u, 4u};
+        request.set_context_id(10u);
+
+        request.object_method_id(0u) = object_method_id_t {0u, 1u};
+        request.object_method_id(1u) = object_method_id_t {0u, 2u};
+        request.object_method_id(2u) = object_method_id_t {0u, 3u};
+        request.object_method_id(3u) = object_method_id_t {0u, 4u};
 
         std::array<std::uint32_t, 10u> param0 {};
         std::fill(param0.begin(), param0.end(), 0xAC0FFE00u);
@@ -34,12 +35,12 @@ namespace upscale_rpc
         std::array<std::uint8_t, 16u> param3 {};
         std::fill(param2.begin(), param2.end(), 0xF1F2F3F4F5F6F7F8u);
 
-        auto& params = req.params();
+        auto& params = request.params();
 
-        REQUIRE(params.add(to_span(param0)));
-        REQUIRE(params.add(to_span(param1)));
-        REQUIRE(params.add(to_span(param2)));
-        REQUIRE(params.add(to_span(param3)));
+        REQUIRE(params.add(to_cspan(param0)));
+        REQUIRE(params.add(to_cspan(param1)));
+        REQUIRE(params.add(to_cspan(param2)));
+        REQUIRE(params.add(to_cspan(param3)));
 
         REQUIRE(params.count() == 4u);
 
@@ -62,11 +63,11 @@ namespace upscale_rpc
         verifier(2u, param2);
         verifier(3u, param3);
 
-        auto raw_data = req.raw_data();
+        auto raw_data = c_raw_data_of(request);
 
         auto deserialized_header = *reinterpret_cast<const header_t*>(raw_data.data());
 
-        std::vector<std::uint8_t> deserialized_req {raw_data.begin(), raw_data.end()};
+        const std::vector<std::uint8_t> deserialized_request {raw_data.begin(), raw_data.end()};
 
         REQUIRE(deserialized_header.count == params.count());
     }
