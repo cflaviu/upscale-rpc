@@ -11,6 +11,8 @@ namespace upscale_rpc::request
     class base
     {
     public:
+        static_assert(_Count != 0u);
+
         using object_method_id_array = std::array<object_method_id_t, _Count>;
         using index_t = std::uint8_t;
 
@@ -22,6 +24,7 @@ namespace upscale_rpc::request
         header_t header() const noexcept { return _header; }
 
         context_id_t context_id() const noexcept { return _context_id; }
+        void set_context_id(context_id_t id) noexcept { _context_id = id; }
 
         constexpr const object_method_id_array& object_method_ids() const noexcept { return _object_method_ids; }
 
@@ -38,15 +41,15 @@ namespace upscale_rpc::request
 
     protected:
         header_t _header;
-        context_id_t _context_id;
+        context_id_t _context_id {};
         object_method_id_array _object_method_ids {};
     };
 
     template <const std::uint8_t _Count, const std::uint8_t _Size_type, const size_t _Param_buffer_size>
-    using linked_params = message::linked_params<base, _Count, _Size_type, _Param_buffer_size>;
+    using linked_params = message::linked_params<base, _Count, _Count, _Size_type, _Param_buffer_size>;
 
     template <const std::uint8_t _Count, const std::uint8_t _Size_type>
-    using inline_params = message::inline_params<base, _Count, _Size_type>;
+    using inline_params = message::inline_params<base, _Count, _Count, _Size_type>;
 
     template <const std::uint8_t _Count, const std::uint8_t _Size_type>
     using no_params = message::no_params<base, _Count, _Size_type>;

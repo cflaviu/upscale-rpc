@@ -11,6 +11,8 @@ namespace upscale_rpc::message
     class multiple_context_id_base
     {
     public:
+        static_assert(_Count != 0u);
+
         using context_id_array = std::array<context_id_t, _Count>;
 
         constexpr multiple_context_id_base(const marker_t marker, const bool use_params, const bool use_inline_params = false) noexcept:
@@ -23,6 +25,9 @@ namespace upscale_rpc::message
         constexpr const context_id_array& context_ids() const noexcept { return _context_ids; }
 
         constexpr context_id_array& context_ids() noexcept { return _context_ids; }
+        void set_context_id(const std::uint8_t index, context_id_t id) noexcept { _context_ids[index] = id; }
+
+        bool operator==(const multiple_context_id_base& item) const noexcept = default;
 
     protected:
         header_t _header;
@@ -34,6 +39,10 @@ namespace upscale_rpc::message
     class linked_parameter_data
     {
     public:
+        static_assert(_Count != 0u);
+        static_assert(_Buffer_size != 0u);
+        static_assert(_Alignment != 0u);
+
         using size_type_t = typename restricted_data_traits<_Size_type>::value_type;
         using size_array = std::array<size_type_t, _Count>;
         using data_t = std::span<const std::uint8_t>;
@@ -95,14 +104,21 @@ namespace upscale_rpc::message
         std::uint8_t _count {};
     };
 
-    template <template <const std::uint8_t, const std::uint8_t> class base, const std::uint8_t _Count, const std::uint8_t _Size_type,
-              const size_t _Param_buffer_size, const std::uint8_t _Alignment = sizeof(size_t)>
-    class linked_params: public base<_Count, _Size_type>
+    template <template <const std::uint8_t, const std::uint8_t> class base, const std::uint8_t _Context_count,
+              const std::uint8_t _Param_count, const std::uint8_t _Size_type, const size_t _Param_buffer_size,
+              const std::uint8_t _Alignment = sizeof(size_t)>
+    class linked_params: public base<_Context_count, _Size_type>
     {
     public:
-        using param_data_t = linked_parameter_data<_Count, _Size_type, _Param_buffer_size, _Alignment>;
+        static_assert(_Context_count != 0u);
+        static_assert(_Param_count != 0u);
+        static_assert(_Param_buffer_size != 0u);
+        static_assert(_Alignment != 0u);
 
-        constexpr linked_params(const context_id_t context_id) noexcept: base<_Count, _Size_type>(context_id, true) {}
+        using param_data_t = linked_parameter_data<_Param_count, _Size_type, _Param_buffer_size, _Alignment>;
+        using base_t = base<_Context_count, _Size_type>;
+
+        constexpr linked_params() noexcept: base<_Context_count, _Size_type>(true) {}
 
         const param_data_t& params() const noexcept { return _params; }
 
@@ -118,21 +134,20 @@ namespace upscale_rpc::message
 #endif
         }
 
-        raw_data_t raw_data() const noexcept { return {reinterpret_cast<const std::uint8_t*>(this), sizeof(linked_params)}; }
-
     protected:
         param_data_t _params {};
     };
 
-    template <template <const std::uint8_t, const std::uint8_t> class base, const std::uint8_t _Count, const std::uint8_t _Size_type>
-    class inline_params: public base<_Count, _Size_type>
+    template <template <const std::uint8_t, const std::uint8_t> class base, const std::uint8_t _Context_count,
+              const std::uint8_t _Param_count, const std::uint8_t _Size_type>
+    class inline_params: public base<_Context_count, _Size_type>
     {
     public:
         using param_data_t = typename data_traits<_Size_type>::value_type;
-        using param_data_array = std::array<param_data_t, _Count>;
+        using param_data_array = std::array<param_data_t, _Param_count>;
         using index_t = std::uint8_t;
 
-        constexpr inline_params(const context_id_t context_id) noexcept: base<_Count, _Size_type>(context_id, true, true) {}
+        constexpr inline_params() noexcept: base<_Context_count, _Size_type>(true, true) {}
 
         const param_data_array& params() const noexcept { return _params; }
 
@@ -142,16 +157,22 @@ namespace upscale_rpc::message
 
         param_data_t& params(const index_t index) noexcept { return _params[index]; }
 
-        raw_data_t raw_data() const noexcept { return {reinterpret_cast<const std::uint8_t*>(this), sizeof(inline_params)}; }
-
     protected:
         param_data_array _params {};
     };
 
     template <template <const std::uint8_t, const std::uint8_t> class base, const std::uint8_t _Count, const std::uint8_t _Size_type>
-    class no_params: public base<_Count, _Size_type>
+    using no_params = base<_Count, _Size_type>;
+
+    template <typename T>
+    c_raw_data_t c_raw_data_of(const T& item) noexcept
     {
-    public:
-        raw_data_t raw_data() const noexcept { return {reinterpret_cast<const std::uint8_t*>(this), sizeof(no_params)}; }
-    };
+        return {reinterpret_cast<const std::uint8_t*>(&item), sizeof(T)};
+    }
+
+    template <typename T>
+    raw_data_t raw_data_of(T& item) noexcept
+    {
+        return {reinterpret_cast<std::uint8_t*>(&item), sizeof(T)};
+    }
 }

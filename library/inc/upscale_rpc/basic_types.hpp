@@ -21,6 +21,12 @@ namespace upscale_rpc
         return {reinterpret_cast<std::uint8_t*>(array.data()), array.size() * sizeof(typename _Array::value_type)};
     }
 
+    template <typename _Array>
+    constexpr std::span<const std::uint8_t> to_cspan(_Array& array) noexcept
+    {
+        return {reinterpret_cast<const std::uint8_t*>(array.data()), array.size() * sizeof(typename _Array::value_type)};
+    }
+
     constexpr auto align_offset_forward(auto offset, const std::uint8_t alignment) noexcept
     {
         return (offset + (alignment - 1u)) & -alignment;
@@ -64,6 +70,8 @@ namespace upscale_rpc
             count(count)
         {
         }
+
+        bool operator==(const header_t&) const noexcept = default;
     };
 
     using context_id_t = std::uint16_t;
@@ -148,5 +156,6 @@ namespace upscale_rpc
     {
     };
 
-    using raw_data_t = std::span<const std::uint8_t>;
+    using c_raw_data_t = std::span<const std::uint8_t>;
+    using raw_data_t = std::span<std::uint8_t>;
 }
