@@ -81,6 +81,9 @@ namespace upscale_rpc::message
             return {};
         }
 
+        std::size_t bytes_unused() const noexcept { return _buffer.size() - _index; }
+        std::size_t bytes_used() const noexcept { return sizeof(linked_parameter_data) - bytes_unused(); }
+
         void create_offsets() noexcept
         {
             _index = 0u;
@@ -94,14 +97,16 @@ namespace upscale_rpc::message
             }
         }
 
+        bool operator==(const linked_parameter_data& item) const noexcept = default;
+
     protected:
         using buffer_t = std::array<std::uint8_t, _Buffer_size>;
 
         size_array _sizes {};
-        buffer_t _buffer {};
         size_array _offsets {};
         size_t _index {};
         std::uint8_t _count {};
+        buffer_t _buffer {};
     };
 
     template <template <const std::uint8_t, const std::uint8_t> class base, const std::uint8_t _Context_count,
@@ -134,6 +139,10 @@ namespace upscale_rpc::message
 #endif
         }
 
+        std::size_t bytes_used() const noexcept { return sizeof(linked_params) - _params.bytes_unused(); }
+
+        bool operator==(const linked_params& item) const noexcept = default;
+
     protected:
         param_data_t _params {};
     };
@@ -156,6 +165,8 @@ namespace upscale_rpc::message
         param_data_t params(const index_t index) const noexcept { return _params[index]; }
 
         param_data_t& params(const index_t index) noexcept { return _params[index]; }
+
+        bool operator==(const inline_params&) const noexcept = default;
 
     protected:
         param_data_array _params {};

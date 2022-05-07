@@ -16,13 +16,15 @@ namespace upscale_rpc::response
         using call_result_count_array = std::array<std::uint8_t, _Count>;
 
         constexpr base(const bool use_params, const bool use_inline_params = false) noexcept:
-            message::multiple_context_id_base<_Count, _Size_type>(marker_t::response, use_inline_params, use_params)
+            message::multiple_context_id_base<_Count, _Size_type>(marker_t::response, use_params, use_inline_params)
         {
         }
 
         constexpr const call_result_count_array& call_result_counts() const noexcept { return _call_result_counts; }
 
-        constexpr call_result_count_array& call_result_countss() noexcept { return _call_result_counts; }
+        constexpr call_result_count_array& call_result_counts() noexcept { return _call_result_counts; }
+
+        bool operator==(const base&) const noexcept = default;
 
     protected:
         call_result_count_array _call_result_counts {};
