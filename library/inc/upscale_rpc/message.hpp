@@ -50,7 +50,7 @@ namespace upscale_rpc::message
 
         constexpr const size_array& sizes() const noexcept { return _sizes; }
 
-        data_t buffer() const noexcept { return {_buffer.begin(), _index}; }
+        data_t buffer() const noexcept { return { _buffer.begin(), _index}; }
 
         std::uint8_t count() const noexcept { return _count; }
 
@@ -81,8 +81,8 @@ namespace upscale_rpc::message
             return {};
         }
 
-        std::size_t bytes_unused() const noexcept { return _buffer.size() - _index; }
-        std::size_t bytes_used() const noexcept { return sizeof(linked_parameter_data) - bytes_unused(); }
+        std::size_t bytes_used() const noexcept { return offsetof(linked_parameter_data, _buffer) + _index; }
+        std::size_t bytes_unused() const noexcept { return sizeof(linked_parameter_data) - bytes_used(); }
 
         void create_offsets() noexcept
         {
@@ -97,16 +97,33 @@ namespace upscale_rpc::message
             }
         }
 
-        bool operator==(const linked_parameter_data& item) const noexcept = default;
+        bool operator==(const linked_parameter_data& item) const noexcept
+        {
+            bool equal = (_sizes == item._sizes);
+            if (equal)
+            {
+                std::size_t amount = 0u;
+                for(auto size : _sizes)
+                {
+                    amount = align_offset_forward(amount, _Alignment) + size;
+                }
+
+                equal = std::equal(_buffer.begin(), _buffer.begin() + amount, item._buffer.begin());
+            }
+
+            return equal;
+        }
 
     protected:
         using buffer_t = std::array<std::uint8_t, _Buffer_size>;
 
+        // only _sizes and _buffer will be serialized
         size_array _sizes {};
+        buffer_t _buffer {};
+
         size_array _offsets {};
         size_t _index {};
         std::uint8_t _count {};
-        buffer_t _buffer {};
     };
 
     template <template <const std::uint8_t, const std::uint8_t> class base, const std::uint8_t _Context_count,
